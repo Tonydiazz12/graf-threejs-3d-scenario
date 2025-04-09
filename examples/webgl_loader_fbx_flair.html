@@ -69,11 +69,11 @@
 			scene.background = new THREE.Color(0xa0a0a0);
 			scene.fog = new THREE.Fog(0xa0a0a0, 200, 1000);
 
-			const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 5);
+			const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2);
 			hemiLight.position.set(0, 200, 0);
 			scene.add(hemiLight);
 
-			const dirLight = new THREE.DirectionalLight(0xffffff, 5);
+			const dirLight = new THREE.DirectionalLight(0xffffff, 1);
 			dirLight.position.set(0, 200, 100);
 			dirLight.castShadow = true;
 			dirLight.shadow.camera.top = 180;
@@ -127,7 +127,7 @@
 			// --------------------------------------------------------------
 			const rgbeLoader = new RGBELoader();
 			//Ecenario HDR
-			rgbeLoader.load('models/rgbe/blue_hour_8k.hdr', function (texture) {
+			rgbeLoader.load('models/rgbe/pond_bridge_night_4k.hdr', function (texture) {
 				texture.mapping = THREE.EquirectangularReflectionMapping;
 				scene.background = texture;
 				scene.environment = texture;
@@ -138,7 +138,7 @@
 
 			const sound = new Audio(listener);
 			const audioLoader = new AudioLoader();
-			audioLoader.load('models/rgbe/Snow-Informer.mp3', function (buffer) {
+			audioLoader.load('models/rgbe/cancion.mp3', function (buffer) {
 				console.log("Audio cargado exitosamente");
 				sound.setBuffer(buffer);
 				sound.setLoop(true);
@@ -204,11 +204,11 @@
 						// -----------------------------------------------------------
 						// Aplicar un material de agua o translúcido al modelo
 						child.material = new THREE.MeshStandardMaterial({
-							color: 0xffffff,  // Color rojo acuático
-							transparent: true,
+							color: 0xffffff,  // 
+							transparent: false,
 							opacity: 0.9,
 							roughness: 0.5,
-							metalness: 0.7
+							metalness: 1
 						});
 						// -----------------------------------------------------------
 
@@ -251,11 +251,8 @@
 		function animate() {
 
 			const delta = clock.getDelta();
-
 			if (mixer) mixer.update(delta);
-
 			renderer.render(scene, camera);
-
 			stats.update();
 		}
 	</script>
