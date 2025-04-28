@@ -24,6 +24,7 @@
 		</script>
 
 	<script type="module">
+
 		import * as THREE from 'three';
 		import Stats from 'three/addons/libs/stats.module.js';
 		import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -38,19 +39,27 @@
 		let mixer;
 
 		const clock = new THREE.Clock();
-
 		const params = {
 			asset: 'Capoeira'
 		};
-
 		const assets = [
 			'Capoeira',
 			'morph_test'
 		];
 
+		let rainParticles, rainGeometry, rainMaterial;
+		let rainSpeed = 2;
+		let rainColor = 0xaaaaaa;  // Color inicial gris claro
+		let windStrength = 0; // Inicialmente sin viento
+		let fogDensity = 0.002; // Densidad inicial de la neblina
+		let fogColor = 0xffffff; // Color inicial (blanco)
+
 		init();
 
+
+
 		function init() {
+
 			const container = document.createElement('div');
 			document.body.appendChild(container);
 
@@ -59,13 +68,13 @@
 
 			scene = new THREE.Scene();
 			scene.background = new THREE.Color(0xa0a0a0);
-			scene.fog = new THREE.Fog(0xa0a0a0, 200, 1000);
+			scene.fog = new THREE.FogExp2(fogColor, fogDensity);
 
-			const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2);
+			const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 5);
 			hemiLight.position.set(0, 200, 0);
 			scene.add(hemiLight);
 
-			const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+			const dirLight = new THREE.DirectionalLight(0xffffff, 5);
 			dirLight.position.set(0, 200, 100);
 			dirLight.castShadow = true;
 			dirLight.shadow.camera.top = 180;
@@ -75,7 +84,7 @@
 			scene.add(dirLight);
 
 			// ground
-			const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshPhongMaterial({ color: 0x999999, transparent: true, opacity: 0, depthWrite: false }));
+			const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0, 0), new THREE.MeshPhongMaterial({ color: 0x999999, depthWrite: false }));
 			mesh.rotation.x = - Math.PI / 2;
 			mesh.receiveShadow = true;
 			scene.add(mesh);
@@ -98,18 +107,86 @@
 			const controls = new OrbitControls(camera, renderer.domElement);
 			controls.target.set(0, 100, 0);
 			controls.update();
+			// Lluvia
+			rainGeometry = new THREE.BufferGeometry();
+			const rainCount = 15000;
+
+			const rainPositions = [];
+			for (let i = 0; i < rainCount; i++) {
+				rainPositions.push(
+					Math.random() * 1000 - 500,
+					Math.random() * 500,
+					Math.random() * 1000 - 500
+				);
+			}
+
+			rainGeometry.setAttribute('position', new THREE.Float32BufferAttribute(rainPositions, 3));
+
+			rainMaterial = new THREE.PointsMaterial({
+				color: rainColor,
+				size: 0.95,
+				transparent: true
+			});
+
+			rainParticles = new THREE.Points(rainGeometry, rainMaterial);
+			scene.add(rainParticles);
 			window.addEventListener('resize', onWindowResize);
+
+			window.addEventListener('keydown', function (event) {
+				if (event.code === 'ArrowUp') {
+					rainSpeed += 0.5; // Aumenta velocidad
+				} else if (event.code === 'ArrowDown') {
+					rainSpeed = Math.max(0, rainSpeed - 0.5); // Reduce velocidad, mínimo 0
+				} else if (event.code === 'KeyR') {
+					rainColor = 0xff0000; // Cambia a rojo
+					rainMaterial.color.setHex(rainColor);
+				} else if (event.code === 'KeyB') {
+					rainColor = 0x0000ff; // Cambia a azul
+					rainMaterial.color.setHex(rainColor);
+				} else if (event.code === 'KeyG') {
+					rainColor = 0x00ff00; // Cambia a verde
+					rainMaterial.color.setHex(rainColor);
+				} else if (event.code === 'KeyW') {
+					rainColor = 0xffffff; // Cambia a blanco
+					rainMaterial.color.setHex(rainColor);
+				} else if (event.code === 'KeyV') {
+					windStrength += 0.5; // Incrementa el viento
+					if (windStrength > 5) {
+						windStrength = 0; // Si es muy fuerte, reinicia a cero
+					}
+				} else if (event.code === 'ArrowLeft') {
+					fogDensity = Math.max(0, fogDensity - 0.0005); // Hace más ligera la neblina
+					updateFog();
+				} else if (event.code === 'ArrowRight') {
+					fogDensity = Math.min(0.1, fogDensity + 0.0005); // Hace más espesa la neblina
+					updateFog();
+				} else if (event.code === 'KeyA') {
+					fogColor = 0xff0000; // Rojo
+					updateFog();
+				} else if (event.code === 'KeyS') {
+					fogColor = 0x00ff00; // Verde
+					updateFog();
+				} else if (event.code === 'KeyD') {
+					fogColor = 0x0000ff; // Azul
+					updateFog();
+				} else if (event.code === 'KeyF') {
+					fogColor = 0xffffff; // Blanco
+					updateFog();
+				}
+			});
 			// stats
 			stats = new Stats();
 			container.appendChild(stats.dom);
+
 			const gui = new GUI();
 			gui.add(params, 'asset', assets).onChange(function (value) {
 				loadAsset(value);
-
 			});
+
 			guiMorphsFolder = gui.addFolder('Morphs').hide();
-			const rgbeLoader = new RGBELoader();
+
 			//Ecenario HDR
+			const rgbeLoader = new RGBELoader();
 			rgbeLoader.load('models/rgbe/pond_bridge_night_4k.hdr', function (texture) {
 				texture.mapping = THREE.EquirectangularReflectionMapping;
 				scene.background = texture;
@@ -118,20 +195,27 @@
 			//Audio
 			const listener = new AudioListener();
 			camera.add(listener);
-
 			const sound = new Audio(listener);
 			const audioLoader = new AudioLoader();
-			audioLoader.load('models/rgbe/cancion.mp3', function (buffer) {
+			audioLoader.load('models/rgbe/cancion.pm3', function (buffer) {
 				console.log("Audio cargado exitosamente");
 				sound.setBuffer(buffer);
 				sound.setLoop(true);
 				sound.setVolume(0.5);
 				sound.play();
 			});
+
+		}
+
+
+		function updateFog() {
+			scene.fog.color.setHex(fogColor);
+			scene.fog.density = fogDensity;
 		}
 
 		function loadAsset(asset) {
 			loader.load('models/fbx/' + asset + '.fbx', function (group) {
+
 				if (object) {
 					object.traverse(function (child) {
 						if (child.material) {
@@ -145,6 +229,7 @@
 					});
 					scene.remove(object);
 				}
+
 				object = group;
 				if (object.animations && object.animations.length) {
 					mixer = new THREE.AnimationMixer(object);
@@ -152,16 +237,18 @@
 					action.play();
 				} else {
 					mixer = null;
-
 				}
+
 				guiMorphsFolder.children.forEach((child) => child.destroy());
 				guiMorphsFolder.hide();
+
 				object.traverse(function (child) {
+
 					if (child.isMesh) {
 						// Aplicar un material de agua o translúcido al modelo
 						child.material = new THREE.MeshStandardMaterial({
-							color: 0xffffff,  // 
-							transparent: false,
+							color: 0xffffff,  
+							transparent: true,
 							opacity: 0.9,
 							roughness: 0.5,
 							metalness: 1
@@ -171,10 +258,10 @@
 						child.receiveShadow = true;
 
 						if (child.morphTargetDictionary) {
+
 							guiMorphsFolder.show();
 							const meshFolder = guiMorphsFolder.addFolder(child.name || child.uuid);
 							Object.keys(child.morphTargetDictionary).forEach((key) => {
-
 								meshFolder.add(child.morphTargetInfluences, child.morphTargetDictionary[key], 0, 1, 0.01);
 
 							});
@@ -195,10 +282,21 @@
 		function animate() {
 			const delta = clock.getDelta();
 			if (mixer) mixer.update(delta);
+			// Animar la lluvia
+			const positions = rainGeometry.attributes.position.array;
+			for (let i = 0; i < positions.length; i += 3) {
+				positions[i + 1] -= rainSpeed * delta * 10; // baja en Y
+				positions[i] += windStrength * delta * 10; // mueve en X (viento)
+
+				if (positions[i + 1] < 0) { // si toca el suelo
+					positions[i + 1] = 500; // reinicia la gota arriba
+					positions[i] = Math.random() * 1000 - 500; // nueva posición X aleatoria
+				}
+			}
+			rainGeometry.attributes.position.needsUpdate = true;
 			renderer.render(scene, camera);
 			stats.update();
 		}
 	</script>
 </body>
-
 </html>

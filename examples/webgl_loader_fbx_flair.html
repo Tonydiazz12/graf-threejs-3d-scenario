@@ -145,7 +145,7 @@
 					});
 					scene.remove(object);
 				}
-				object = group;
+				object = group;	
 				if (object.animations && object.animations.length) {
 					mixer = new THREE.AnimationMixer(object);
 					const action = mixer.clipAction(object.animations[0]);
